@@ -1,3 +1,12 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arsalan - Daily Operations</title>
+<script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
   :root { 
     --bg: #000000; --card-bg: #111113; --fg: #f5f5f7; 
@@ -111,3 +120,385 @@
   .nav-kaaba { width: 20px; height: 20px; background: #000; border: 1.5px solid currentColor; border-radius: 3.5px; display: flex; flex-direction: column; align-items: center; padding-top: 3.5px; box-sizing: border-box; }
   .nav-kaaba-band { width: 100%; height: 3.5px; background: var(--gold); }
 </style>
+</head>
+<body>
+
+  <div class="header-container">
+    <h1 id="page-title">Home</h1>
+    <button onclick="openHistoryModal()" class="icon-btn" title="Calendar History">
+      <svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM9 14H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2zm-8 4H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2z"/></svg>
+    </button>
+  </div>
+  <p class="subtitle" id="page-subtitle" style="color:var(--accent); font-size:0.85rem; margin-top:4px;">Welcome back. Keep your standards high.</p>
+
+  <!-- TAB 1: HOME -->
+  <div id="tab-home" class="tab-section active">
+    <div class="home-grid">
+      <div class="widget-box">
+        <div class="title">Next Prayer</div>
+        <div class="value" id="next-prayer-widget" style="font-size:1rem;">Loading...</div>
+      </div>
+      <div class="widget-box">
+        <div class="title">Streak</div>
+        <div class="value" id="streak-widget">🔥 0 Days</div>
+      </div>
+    </div>
+    <div class="home-grid">
+      <div class="widget-box">
+        <div class="title">Schedule / Shift</div>
+        <div class="value" id="shift-widget" style="font-size:1rem;">Day Shift 1</div>
+      </div>
+      <div class="widget-box">
+        <div class="title">Quick Water</div>
+        <button onclick="addWater()" class="btn-small" style="width:100%; margin-top:4px; height:32px;">+ 500ml</button>
+        <div class="value" id="water-widget" style="font-size:0.85rem; margin-top:4px; color:var(--accent);">0 ml</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Daily Inspiration</h2>
+      <div class="quote-container">
+        <div class="quote-text" id="quote-display">"Verily, with hardship comes ease."</div>
+        <div class="quote-author" id="author-display">Surah Al-Sharh 94:6</div>
+      </div>
+      <button onclick="nextQuote()" class="btn-small" style="width:100%; margin-top:12px; height:38px;">Shuffle Quote</button>
+    </div>
+
+    <div class="card">
+      <h2>Daily Objectives Checklist</h2>
+      <div class="objectives-list">
+        <div class="objective-item" id="obj-prayers">
+          <div class="objective-left"><div class="objective-check"><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg></div><span>All 5 Prayers Completed</span></div>
+          <span style="font-size:0.75rem;" id="obj-prayers-status">0/5</span>
+        </div>
+        <div class="objective-item" id="obj-training">
+          <div class="objective-left"><div class="objective-check"><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg></div><span>Gym Workout / Sport Session</span></div>
+          <span style="font-size:0.75rem;" id="obj-training-status">Pending</span>
+        </div>
+        <div class="objective-item" id="obj-nutrition">
+          <div class="objective-left"><div class="objective-check"><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg></div><span>Fuel & Macros Logged</span></div>
+          <span style="font-size:0.75rem;" id="obj-nutrition-status">0 items</span>
+        </div>
+        <div class="objective-item" id="obj-water">
+          <div class="objective-left"><div class="objective-check"><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg></div><span>Hydration Target (2,000ml+)</span></div>
+          <span style="font-size:0.75rem;" id="obj-water-status">0 ml</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>AI Performance Brief</h2>
+      <div class="ai-breakdown">
+        <div class="ai-title">Yesterday's Execution Review</div>
+        <p id="ai-review-text" style="margin:0; color:#ddd;">Loading...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: SALAH -->
+  <div id="tab-salah" class="tab-section">
+    <div class="card">
+      <div class="salah-header-info">
+        <div><div class="salah-next-label">Next Prayer</div><div class="salah-next-main" id="salah-next-title">Dhuhr</div></div>
+        <div class="salah-next-time-large" id="salah-next-countdown">12:30</div>
+      </div>
+      <div class="salah-grid">
+        <div class="salah-card" id="card-fajr" onclick="togglePrayer('fajr')"><div class="salah-icon">🌅</div><div class="salah-name">Fajr</div><div class="salah-time" id="time-fajr">--:--</div><input type="checkbox" id="fajr" class="salah-hidden-check"><div class="salah-checkbox-circle"><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg></div></div>
+        <div class="salah-card" id="card-dhuhr" onclick="togglePrayer('dhuhr')"><div class="salah-icon">☀️</div><div class="salah-name">Dhuhr</div><div class="salah-time" id="time-dhuhr">--:--</div><input type="checkbox" id="dhuhr" class="salah-hidden-check"><div class="salah-checkbox-circle"><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg></div></div>
+        <div class="salah-card" id="card-asr" onclick="togglePrayer('asr')"><div class="salah-icon">🌤️</div><div class="salah-name">Asr</div><div class="salah-time" id="time-asr">--:--</div><input type="checkbox" id="asr" class="salah-hidden-check"><div class="salah-checkbox-circle"><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg></div></div>
+        <div class="salah-card" id="card-maghrib" onclick="togglePrayer('maghrib')"><div class="salah-icon">🌇</div><div class="salah-name">Maghrib</div><div class="salah-time" id="time-maghrib">--:--</div><input type="checkbox" id="maghrib" class="salah-hidden-check"><div class="salah-checkbox-circle"><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg></div></div>
+        <div class="salah-card" id="card-isha" onclick="togglePrayer('isha')"><div class="salah-icon">🌙</div><div class="salah-name">Isha</div><div class="salah-time" id="time-isha">--:--</div><input type="checkbox" id="isha" class="salah-hidden-check"><div class="salah-checkbox-circle"><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Qibla Direction</h2>
+      <div class="compass-container">
+        <div class="compass-dial">
+          <div class="compass-rose-ring"><div class="compass-n-marker">N</div></div>
+          <div class="compass-needle-wrapper" id="compass-needle-wrapper">
+            <div class="compass-needle" id="compass-needle"></div>
+            <div class="kaaba-icon" id="kaaba-icon"><div class="kaaba-band" id="kaaba-band"></div></div>
+          </div>
+          <div class="compass-center-dot"></div>
+        </div>
+        <div class="compass-info">Bearing: <span id="qibla-angle">119°</span><br><button onclick="initCompass()" class="btn-small" style="margin-top:10px; color:var(--gold);">Calibrate Compass</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: TRAINING -->
+  <div id="tab-training" class="tab-section">
+    <div class="card">
+      <h2>Gym Training <span id="session-timer" style="float:right; font-family:monospace; color:var(--green); font-size:0.95rem;">00:00</span></h2>
+      <div class="input-group">
+        <div class="training-row"><select id="saved-routine-select" style="flex:2;"><option value="">Load Saved Routine...</option></select><button onclick="loadRoutine()" class="btn-small" style="flex:1;">Load</button></div>
+        <div class="training-row"><input type="text" id="session-name" placeholder="Routine Name" style="flex:2;"><button onclick="saveRoutineTemplate()" class="btn-small" style="flex:1;">Save</button><button onclick="finishSession()" class="btn-small" style="flex:1; background:var(--green); color:#000;">Finish</button></div>
+        <div class="training-row"><select id="exercise-select" onchange="handleExerciseSelectChange(this)" style="flex:2;"><option value="">Select Exercise...</option></select><button onclick="addExerciseToSession()" class="btn-small" style="flex:1;">+ Add</button></div>
+        <div id="custom-exercise-row" style="display: none;"><input type="text" id="custom-exercise-name" placeholder="Custom exercise name..."></div>
+      </div>
+      <div id="active-session-container" style="margin-top: 15px;"></div>
+    </div>
+    <div class="card">
+      <h2>Sports & Conditioning</h2>
+      <div class="input-group">
+        <select id="sport-select" onchange="handleSportSelectChange(this)">
+          <option value="">Select Sport...</option><option value="Football">Football</option><option value="Padel">Padel</option><option value="__OTHER__">Other...</option>
+        </select>
+        <div id="custom-sport-row" style="display: none;"><input type="text" id="custom-sport-name" placeholder="Custom sport name..."></div>
+        <div class="training-row"><input type="number" id="sport-duration" placeholder="Duration (mins)" style="flex:1;"><input type="number" id="sport-cals" placeholder="Est. Cals" style="flex:1;"></div>
+        <button onclick="logSportSession()" style="background:var(--blue); color:#fff;">Log Sport</button>
+      </div>
+      <ul id="sport-log"></ul>
+    </div>
+  </div>
+
+  <!-- TAB 4: NUTRITION -->
+  <div id="tab-nutrition" class="tab-section">
+    <div class="card">
+      <h2>Nutrition & Macros <span id="shift-mode-badge" style="float:right; font-size:0.75rem; background:rgba(10,132,255,0.15); color:var(--blue); padding:3px 8px; border-radius:6px;">Rest Day</span></h2>
+      <div class="input-group">
+        <div class="macro-target-grid">
+          <div class="macro-target-box"><label>Target Cals</label><input type="number" id="target-cals" oninput="updateMacroTargetsManual()"></div>
+          <div class="macro-target-box"><label>Target Protein</label><input type="number" id="target-protein" oninput="updateMacroTargetsManual()"></div>
+          <div class="macro-target-box"><label>Target Carbs</label><input type="number" id="target-carbs" oninput="updateMacroTargetsManual()"></div>
+          <div class="macro-target-box"><label>Target Fat</label><input type="number" id="target-fat" oninput="updateMacroTargetsManual()"></div>
+        </div>
+        <div class="macro-progress-container">
+          <div class="macro-bar-label"><span>Calories Left</span><span id="left-cals-val">0</span></div>
+          <div class="macro-bar-bg"><div class="macro-bar-fill" id="bar-cals" style="background:var(--blue);"></div></div>
+          <div class="macro-bar-label" style="margin-top:10px;"><span>Protein Left</span><span id="left-protein-val">0</span></div>
+          <div class="macro-bar-bg"><div class="macro-bar-fill" id="bar-protein" style="background:var(--green);"></div></div>
+        </div>
+        <input type="text" id="food" placeholder="Type food..." list="food-options"><datalist id="food-options"></datalist>
+        <div id="food-hint"></div>
+        <div class="training-row"><input type="number" id="food-grams" value="100" oninput="recalculateMacros()" style="flex:2;"><select disabled style="flex:1;"><option>g/ml</option></select></div>
+        <input type="number" id="cals" placeholder="Cals"><input type="number" id="protein" placeholder="Protein"><input type="number" id="carbs" placeholder="Carbs"><input type="number" id="fat" placeholder="Fat">
+        <button onclick="logMeal()" style="background:var(--fg); color:var(--bg);">Log Food</button>
+        <div style="margin-top:15px; border-top:1px solid var(--border); padding-top:15px;">
+          <label style="font-size:0.8rem; color:var(--accent);">Label OCR Scan</label>
+          <div class="training-row" style="margin-top:8px;"><input type="file" id="nutrition-label-input" accept="image/*" style="flex:2; padding:8px;"><button onclick="scanNutritionLabel()" class="btn-small" style="background:var(--gold); color:#000;">Scan</button></div>
+        </div>
+      </div>
+      <ul id="meal-log"></ul>
+    </div>
+  </div>
+
+  <!-- TAB 5: WEIGHT -->
+  <div id="tab-weight" class="tab-section">
+    <div class="card">
+      <h2>Weight & Check-Ins</h2>
+      <div class="input-group">
+        <input type="number" step="0.1" id="daily-weight-input" placeholder="Weight (kg)">
+        <button onclick="logDailyWeight()" style="background:var(--blue); color:#fff;">Log Weight</button>
+      </div>
+      <div style="margin-top:15px; text-align:center;" id="latest-weight-display">Latest: None</div>
+      <div class="weight-graph-container"><div class="weight-graph-title">Trend</div><svg id="weight-svg" class="weight-svg" viewBox="0 0 300 120"></svg></div>
+    </div>
+    <div class="card">
+      <h2>Visual Check-In</h2>
+      <div class="input-group">
+        <input type="file" id="checkin-photo-input" accept="image/*">
+        <button onclick="stageCheckInPhoto()" style="background:#2c2c2e; color:#fff;">1. Stage Photo</button>
+        <button onclick="runAICheckinScan()" style="background:var(--gold); color:#000;">2. AI Scan</button>
+      </div>
+      <div class="checkin-grid">
+        <div class="checkin-thumb-box"><div class="label">Previous</div><div id="prev-image-container" style="color:var(--accent); font-size:0.8rem;">No image</div></div>
+        <div class="checkin-thumb-box"><div class="label">Current</div><div id="curr-image-container" style="color:var(--accent); font-size:0.8rem;">No image</div></div>
+      </div>
+    </div>
+  </div>
+
+  <button class="reset-btn" onclick="resetDay()">Reset Day & Archive to Calendar</button>
+
+  <div class="tab-bar">
+    <button class="tab-item active" onclick="switchTab('home', this)"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>Home</button>
+    <button class="tab-item" onclick="switchTab('salah', this)"><div class="nav-kaaba"><div class="nav-kaaba-band"></div></div>Salah</button>
+    <button class="tab-item" onclick="switchTab('training', this)"><svg viewBox="0 0 24 24"><path d="M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 2.71 2.71 4.14l1.43 1.43L2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 1.43-1.43-1.43-1.43L22 16.29z"/></svg>Training</button>
+    <button class="tab-item" onclick="switchTab('nutrition', this)"><svg viewBox="0 0 24 24"><path d="M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2H-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z"/></svg>Nutrition</button>
+    <button class="tab-item" onclick="switchTab('weight', this)"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>Weight</button>
+  </div>
+
+  <div id="history-modal">
+    <div class="modal-content">
+      <div class="cal-nav"><button onclick="changeMonth(-1)" class="btn-small">&lt;</button><span id="cal-month-year-label">Month</span><button onclick="changeMonth(1)" class="btn-small">&gt;</button></div>
+      <div class="cal-grid"><div class="cal-day-header">Mo</div><div class="cal-day-header">Tu</div><div class="cal-day-header">We</div><div class="cal-day-header">Th</div><div class="cal-day-header">Fr</div><div class="cal-day-header">Sa</div><div class="cal-day-header">Su</div></div>
+      <div id="cal-days-grid" class="cal-grid"></div>
+      <div id="selected-day-container"></div>
+      <button onclick="closeHistoryModal()" class="btn-small" style="width:100%; margin-top:20px;">Close</button>
+    </div>
+  </div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyBgr6ySxacXNpAJo1lFb802ADmLMqch4E",
+    authDomain: "musba-1fd07.firebaseapp.com",
+    projectId: "musba-1fd07",
+    storageBucket: "musba-1fd07.firebasestorage.app",
+    messagingSenderId: "375230370960",
+    appId: "1:375230370960:web:5bc3dc7d2811ce33927415",
+    measurementId: "G-0TRJ13PNZZ"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  const dbKey = "arsalan_data";
+
+  const prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+  let meals = [], sportSessions = [], currentSession = { name: "", exercises: [] };
+  let waterIntake = 0, currentWeight = 0, activeMacroTargets = { cals: 1350, protein: 140, carbs: 96, fat: 45 };
+  let exerciseHistory = JSON.parse(localStorage.getItem('arsalan_exHist')) || {};
+  let personalBests = JSON.parse(localStorage.getItem('arsalan_pbs')) || {};
+  let savedRoutines = JSON.parse(localStorage.getItem('arsalan_routines')) || {};
+  let masterCalendarLog = JSON.parse(localStorage.getItem('arsalan_cal')) || {};
+  let checkInHistory = JSON.parse(localStorage.getItem('arsalan_checkIns')) || [];
+  let pendingCheckInImage = null, baseFoodMacros = null, scannedPer100g = null, calendarViewDate = new Date();
+
+  function saveCurrentData(isSyncingFromCloud = false) {
+    const now = isSyncingFromCloud ? (Number(localStorage.getItem(dbKey + '_lastUpdated')) || Date.now()) : Date.now();
+    const data = {
+      meals, sportSessions, currentSession, waterIntake, currentWeight, activeMacroTargets, lastUpdated: now
+    };
+    prayers.forEach(p => { data[p] = document.getElementById(p) ? document.getElementById(p).checked : false; });
+
+    localStorage.setItem(dbKey, JSON.stringify(data));
+    localStorage.setItem(dbKey + '_lastUpdated', now.toString());
+
+    if (!isSyncingFromCloud) {
+      db.ref(dbKey).set(data).catch(() => {});
+    }
+    calculateStreak();
+  }
+
+  function loadData() {
+    let localData = JSON.parse(localStorage.getItem(dbKey));
+    let localLastUpdated = Number(localStorage.getItem(dbKey + '_lastUpdated')) || 0;
+
+    if (localData) {
+      meals = localData.meals || [];
+      sportSessions = localData.sportSessions || [];
+      currentSession = localData.currentSession || { name: "", exercises: [] };
+      waterIntake = localData.waterIntake || 0;
+      currentWeight = localData.currentWeight || 0;
+      if (localData.activeMacroTargets) activeMacroTargets = localData.activeMacroTargets;
+      prayers.forEach(p => { if (document.getElementById(p)) document.getElementById(p).checked = localData[p] === true; });
+    }
+
+    updateUIState();
+
+    db.ref(dbKey).once('value', (snapshot) => {
+      const cloudData = snapshot.val();
+      if (cloudData) {
+        let cloudLastUpdated = cloudData.lastUpdated || 0;
+        if (cloudLastUpdated > localLastUpdated || localLastUpdated === 0) {
+          meals = cloudData.meals || [];
+          sportSessions = cloudData.sportSessions || [];
+          currentSession = cloudData.currentSession || { name: "", exercises: [] };
+          waterIntake = cloudData.waterIntake || 0;
+          currentWeight = cloudData.currentWeight || 0;
+          if (cloudData.activeMacroTargets) activeMacroTargets = cloudData.activeMacroTargets;
+          prayers.forEach(p => { if (document.getElementById(p)) document.getElementById(p).checked = cloudData[p] === true; });
+          localStorage.setItem(dbKey + '_lastUpdated', cloudLastUpdated.toString());
+          saveCurrentData(true);
+          updateUIState();
+        } else if (localLastUpdated > cloudLastUpdated) {
+          db.ref(dbKey).set(localData).catch(() => {});
+        }
+      }
+    }).catch(() => {});
+  }
+
+  function updateUIState() {
+    updatePrayerUI();
+    determineShiftAndMacros();
+    document.getElementById('session-name').value = currentSession.name;
+    renderSession();
+    renderSportsLogs();
+    renderMeals();
+    updateWaterUI();
+    updateWeightUI();
+    updateChecklistUI();
+    calculateStreak();
+  }
+
+  window.onload = () => {
+    loadData();
+    populateExerciseDropdown();
+    const foodDatalist = document.getElementById('food-options');
+    const foodDB = {
+      "Chicken Breast (100g cooked)": { cals: 195, p: 30, c: 0, f: 7.5 },
+      "Cooked White Rice (100g)": { cals: 130, p: 2.7, c: 28, f: 0.3 },
+      "Whey Protein Isolate (1 scoop/30g)": { cals: 120, p: 24, c: 3, f: 1.5 }
+    };
+    for (let f in foodDB) { let opt = document.createElement('option'); opt.value = f; foodDatalist.appendChild(opt); }
+    renderCheckInImages();
+    renderWeightGraph();
+    fetchPrayerTimes();
+    generateAIBrief();
+  };
+
+  function determineShiftAndMacros() {
+    const epoch = new Date('2026-09-05').setHours(0,0,0,0);
+    const diffDays = Math.floor((new Date().setHours(0,0,0,0) - epoch) / (1000 * 60 * 60 * 24));
+    const cycle = ((diffDays % 8) + 8) % 8;
+    const shiftNames = ["Day Shift 1", "Day Shift 2", "Night Shift 1", "Night Shift 2", "Rest Day 1", "Rest Day 2", "Rest Day 3", "Rest Day 4"];
+    document.getElementById('shift-widget').innerText = shiftNames[cycle];
+    let isTrainingDay = (cycle === 2 || cycle >= 4);
+    activeMacroTargets = isTrainingDay ? { cals: 1550, protein: 140, carbs: 146, fat: 45 } : { cals: 1350, protein: 140, carbs: 96, fat: 45 };
+    document.getElementById('target-cals').value = activeMacroTargets.cals;
+    document.getElementById('target-protein').value = activeMacroTargets.protein;
+    document.getElementById('target-carbs').value = activeMacroTargets.carbs;
+    document.getElementById('target-fat').value = activeMacroTargets.fat;
+  }
+
+  function switchTab(tabName, btn) {
+    document.querySelectorAll('.tab-section').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab-' + tabName).classList.add('active');
+    btn.classList.add('active');
+  }
+  function addWater() { waterIntake += 500; saveCurrentData(); updateWaterUI(); updateChecklistUI(); }
+  function updateWaterUI() { document.getElementById('water-widget').innerText = waterIntake >= 1000 ? (waterIntake/1000).toFixed(1) + ' L' : waterIntake + ' ml'; }
+  function togglePrayer(p) { document.getElementById(p).checked = !document.getElementById(p).checked; updatePrayerUI(); saveCurrentData(); }
+  function updatePrayerUI() {
+    prayers.forEach(p => {
+      let checked = document.getElementById(p) && document.getElementById(p).checked;
+      let card = document.getElementById('card-' + p);
+      if (card) checked ? card.classList.add('completed') : card.classList.remove('completed');
+    });
+    updateChecklistUI();
+  }
+  function updateChecklistUI() {
+    let prayersDone = prayers.filter(p => document.getElementById(p) && document.getElementById(p).checked).length;
+    document.getElementById('obj-prayers-status').innerText = `${prayersDone}/5`;
+    if (prayersDone === 5) document.getElementById('obj-prayers').classList.add('completed');
+    else document.getElementById('obj-prayers').classList.remove('completed');
+    document.getElementById('obj-water-status').innerText = waterIntake >= 1000 ? (waterIntake/1000).toFixed(1) + ' L' : `${waterIntake} ml`;
+    if (waterIntake >= 2000) document.getElementById('obj-water').classList.add('completed');
+  }
+  function logMeal() {
+    let food = document.getElementById('food').value, cals = Number(document.getElementById('cals').value) || 0;
+    if (!food) return alert("Enter food");
+    meals.push({ food, cals, p:0, c:0, f:0 });
+    saveCurrentData(); renderMeals();
+  }
+  function renderMeals() {
+    document.getElementById('meal-log').innerHTML = meals.map((m, i) => `<li>${m.food} (${m.cals} kcal) <button onclick="meals.splice(${i},1);saveCurrentData();renderMeals();" style="float:right;">X</button></li>`).join('');
+    let totalCals = meals.reduce((acc, m) => acc + m.cals, 0);
+    let left = activeMacroTargets.cals - totalCals;
+    document.getElementById('left-cals-val').innerText = left;
+    document.getElementById('bar-cals').style.width = Math.min(100, (totalCals/activeMacroTargets.cals)*100) + '%';
+    updateChecklistUI();
+  }
+  function calculateStreak() { document.getElementById('streak-widget').innerText = "🔥 1 Days"; }
+  async function fetchPrayerTimes() { document.getElementById('next-prayer-widget').innerText = "13:30"; }
+  function nextQuote() {} function openHistoryModal() { document.getElementById('history-modal').style.display = 'flex'; }
+  function closeHistoryModal() { document.getElementById('history-modal').style.display = 'none'; }
+  function resetDay() { if(confirm('Reset?')) { meals=[]; sportSessions=[]; waterIntake=0; saveCurrentData(); updateUIState(); } }
+  function populateExerciseDropdown() {} function handleExerciseSelectChange() {} function handleSportSelectChange() {}
+  function logSportSession() {} function renderSportsLogs() {} function updateMacroTargetsManual() {} function recalculateMacros() {}
+  function scanNutritionLabel() {} function logDailyWeight() {} function updateWeightUI() {} function renderWeightGraph() {}
+  function stageCheckInPhoto() {} function runAICheckinScan() {} function renderCheckInImages() {} function generateAIBrief() {}
+  function saveRoutineTemplate() {} function loadRoutine() {} function addExerciseToSession() {} function finishSession() {}
+  function changeMonth() {} function renderCalendar() {}
+</script>
+</body>
+</html>
