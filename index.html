@@ -254,7 +254,7 @@
   .btn-small { padding: 6px 10px; font-size: 0.75rem; margin-top: 0; background: #2c2c2e; color: #fff; border-radius: 8px; border: none; height: 42px; }
   .btn-danger { background: #3a1d1d; color: var(--red); }
 
-  .pb-badge { background: rgba(212, 175, 55, 0.15); border: 1px solid var(--gold); color: var(--gold); font-size: 0.7rem; padding: 2px 6px; border-radius: 6px; margin-left: 6px; font-weight: 600; }
+  .pb-badge { background: rgba(212, 175, 55, 0.15); border: 1px solid var(--gold); color: var(--gold); font-size: 0.7rem; padding: 2px 6px; border-radius: 6px; margin-left: 6px; font-weight: 600; display: inline-block; }
 
   .compass-container { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px 0; }
   .compass-dial {
@@ -864,8 +864,11 @@
   }
 
   const exerciseDatabase = [
-    "Bench Press (Barbell)", "Bench Press (Dumbbell)", "Incline Bench Press (Barbell)", "Squat (Barbell)", "Leg Press", 
-    "Romanian Deadlift", "Deadlift (Barbell)", "Pull Up", "Lat Pulldown (Cable)", "Barbell Row", "Overhead Press (Barbell)"
+    "Bench Press (Barbell)", "Bench Press (Dumbbell)", "Incline Bench Press (Barbell)", "Incline Bench Press (Dumbbell)", 
+    "Cable Crossover", "Squat (Barbell)", "Leg Press", "Romanian Deadlift", "Leg Extension", "Leg Curl", "Calf Raise", 
+    "Deadlift (Barbell)", "Pull Up", "Lat Pulldown (Cable)", "Barbell Row", "Seated Cable Row", "Dumbbell Row",
+    "Overhead Press (Barbell)", "Lateral Raise (Dumbbell)", "Face Pull (Cable)", "Bicep Curl (Dumbbell)", 
+    "Tricep Pushdown (Cable)", "Machine Ab Crunch", "Bench Supported SA Cable Lat Pulldown"
   ].sort();
 
   const foodDatabase = {
@@ -1236,10 +1239,13 @@
   function saveRoutineTemplate() {
     const name = document.getElementById('session-name').value.trim();
     if (!name || currentSession.exercises.length === 0) return alert("Enter name and exercises.");
-    savedRoutines[name] = currentSession.exercises;
+    savedRoutines[name] = currentSession.exercises.map(ex => ({
+      name: ex.name,
+      sets: ex.sets.map(() => ({ kg: '', reps: '' }))
+    }));
     localStorage.setItem(STORAGE_PREFIX + 'savedRoutines', JSON.stringify(savedRoutines));
     updateRoutineDropdown();
-    alert("Routine saved!");
+    alert("Routine template saved!");
   }
 
   function updateRoutineDropdown() {
@@ -1251,7 +1257,20 @@
   function loadRoutine() {
     const name = document.getElementById('saved-routine-select').value;
     if (!name || !savedRoutines[name]) return;
-    currentSession = { name, exercises: JSON.parse(JSON.stringify(savedRoutines[name])) };
+    currentSession = { 
+      name, 
+      exercises: savedRoutines[name].map(ex => {
+        const hist = exerciseHistory[ex.name] || [];
+        return {
+          name: ex.name,
+          sets: ex.sets.map((s, idx) => ({
+            kg: hist[idx] ? hist[idx].kg : '',
+            reps: hist[idx] ? hist[idx].reps : ''
+          }))
+        };
+      })
+    };
+    document.getElementById('session-name').value = name;
     startSessionTimer();
     saveLocalState();
     renderSession();
@@ -1260,43 +1279,116 @@
   function addExerciseToSession() {
     startSessionTimer();
     let exName = document.getElementById('exercise-select').value;
-    if (exName === '__OTHER__') exName = document.getElementById('custom-exercise-name').value.trim();
-    if (!exName) return;
-    currentSession.exercises.push({ name: exName, sets: [{ kg: '', reps: '' }] });
+    if (exName === '__OTHER__') {
+      exName = document.getElementById('custom-exercise-name').value.trim();
+      if (!exName) return alert("Please type a custom exercise name.");
+      if (!exerciseDatabase.includes(exName)) {
+        exerciseDatabase.push(exName);
+        exerciseDatabase.sort();
+      }
+      document.getElementById('custom-exercise-name').value = '';
+      document.getElementById('custom-exercise-row').style.display = 'none';
+      populateExerciseDropdown();
+    }
+    if (!exName) return alert("Select or type an exercise.");
+
+    const hist = exerciseHistory[exName] || [];
+    const defaultSets = hist.length > 0 ? hist.map(h => ({ kg: h.kg, reps: h.reps })) : [{ kg: '', reps: '' }];
+
+    currentSession.exercises.push({ name: exName, sets: defaultSets });
+    saveLocalState();
+    renderSession();
+    document.getElementById('exercise-select').value = "";
+  }
+
+  function addSet(exIndex) {
+    currentSession.exercises[exIndex].sets.push({ kg: '', reps: '' });
     saveLocalState();
     renderSession();
   }
 
-  function addSet(exIndex) { currentSession.exercises[exIndex].sets.push({ kg: '', reps: '' }); saveLocalState(); renderSession(); }
-  function removeSet(exIndex, setIndex) { currentSession.exercises[exIndex].sets.splice(setIndex, 1); saveLocalState(); renderSession(); }
-  function removeExercise(exIndex) { currentSession.exercises.splice(exIndex, 1); saveLocalState(); renderSession(); }
-  function updateSetData(exIndex, setIndex, field, value) { currentSession.exercises[exIndex].sets[setIndex][field] = value; saveLocalState(); }
+  function removeSet(exIndex, setIndex) {
+    currentSession.exercises[exIndex].sets.splice(setIndex, 1);
+    saveLocalState();
+    renderSession();
+  }
+
+  function removeExercise(exIndex) {
+    currentSession.exercises.splice(exIndex, 1);
+    saveLocalState();
+    renderSession();
+  }
+
+  function updateSetData(exIndex, setIndex, field, value) {
+    currentSession.exercises[exIndex].sets[setIndex][field] = value;
+    saveLocalState();
+  }
 
   function renderSession() {
     const container = document.getElementById('active-session-container');
-    container.innerHTML = currentSession.exercises.map((ex, exIndex) => `
-      <div class="exercise-block">
-        <div class="exercise-title-row"><h3>${ex.name}</h3><button class="btn-small btn-danger" onclick="removeExercise(${exIndex})">Remove</button></div>
-        <table class="set-table">
-          <tr><th>Set</th><th>KG</th><th>Reps</th><th></th></tr>
-          ${ex.sets.map((set, setIndex) => `
-            <tr>
-              <td>${setIndex + 1}</td>
-              <td><input type="number" value="${set.kg}" oninput="updateSetData(${exIndex}, ${setIndex}, 'kg', this.value)"></td>
-              <td><input type="number" value="${set.reps}" oninput="updateSetData(${exIndex}, ${setIndex}, 'reps', this.value)"></td>
-              <td><button class="btn-small btn-danger" onclick="removeSet(${exIndex}, ${setIndex})">×</button></td>
-            </tr>
-          `).join('')}
-        </table>
-        <button class="btn-small" onclick="addSet(${exIndex})" style="margin-top:8px;">+ Add Set</button>
-      </div>
-    `).join('');
+    container.innerHTML = '';
+
+    currentSession.exercises.forEach((ex, exIndex) => {
+      const historyList = exerciseHistory[ex.name] || [];
+      const pb = personalBests[ex.name] || { kg: 0, reps: 0 };
+      let pbText = pb.kg > 0 ? `PB: ${pb.kg}kg × ${pb.reps}` : "";
+
+      let setsHTML = '';
+      ex.sets.forEach((set, setIndex) => {
+        let prev = historyList[setIndex];
+        let prevText = prev ? `${prev.kg} kg × ${prev.reps}` : "-";
+        
+        setsHTML += `
+          <tr>
+            <td style="color:var(--accent); text-align:center;">${setIndex + 1}</td>
+            <td style="color:var(--accent); font-size:0.75rem; text-align:center;">${prevText}</td>
+            <td><input type="number" value="${set.kg}" placeholder="0" oninput="updateSetData(${exIndex}, ${setIndex}, 'kg', this.value)"></td>
+            <td><input type="number" value="${set.reps}" placeholder="0" oninput="updateSetData(${exIndex}, ${setIndex}, 'reps', this.value)"></td>
+            <td><button class="btn-small btn-danger" onclick="removeSet(${exIndex}, ${setIndex})">×</button></td>
+          </tr>
+        `;
+      });
+
+      container.innerHTML += `
+        <div class="exercise-block">
+          <div class="exercise-title-row">
+            <h3>${ex.name} ${pbText ? `<span class="pb-badge">${pbText}</span>` : ''}</h3>
+            <button class="btn-small btn-danger" onclick="removeExercise(${exIndex})">Remove</button>
+          </div>
+          <table class="set-table">
+            <tr><th style="width:10%;">Set</th><th style="width:35%;">Previous</th><th style="width:25%;">KG</th><th style="width:20%;">Reps</th><th style="width:10%;"></th></tr>
+            ${setsHTML}
+          </table>
+          <button class="btn-small" onclick="addSet(${exIndex})" style="height:32px; margin-top:8px;">+ Add Set</button>
+        </div>
+      `;
+    });
     updateChecklistUI();
   }
 
   function finishSession() {
+    if (currentSession.exercises.length === 0) return alert("Add exercises before finishing.");
+    
+    currentSession.exercises.forEach(ex => {
+      exerciseHistory[ex.name] = ex.sets.map(s => ({ kg: Number(s.kg) || 0, reps: Number(s.reps) || 0 }));
+      
+      if (!personalBests[ex.name]) personalBests[ex.name] = { kg: 0, reps: 0 };
+      ex.sets.forEach(s => {
+        let k = Number(s.kg) || 0;
+        let r = Number(s.reps) || 0;
+        let currentBest = personalBests[ex.name];
+        if (k > currentBest.kg || (k === currentBest.kg && r > currentBest.reps)) {
+          personalBests[ex.name] = { kg: k, reps: r };
+        }
+      });
+    });
+
+    localStorage.setItem(STORAGE_PREFIX + 'exerciseHistory', JSON.stringify(exerciseHistory));
+    localStorage.setItem(STORAGE_PREFIX + 'personalBests', JSON.stringify(personalBests));
+    
     resetSessionTimer();
-    alert("Workout finished!");
+    saveLocalState();
+    alert("Workout finished and PBs updated!");
   }
 
   function openHistoryModal() { document.getElementById('history-modal').style.display = 'flex'; renderCalendar(); }
@@ -1320,7 +1412,7 @@
   function resetDay() {
     if (confirm('Archive day?')) {
       const key = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-      masterCalendarLog[key] = { meals, water: waterIntake, weight: currentWeight };
+      masterCalendarLog[key] = { meals, water: waterIntake, weight: currentWeight, workout: currentSession };
       localStorage.setItem(STORAGE_PREFIX + 'masterCalendarLog', JSON.stringify(masterCalendarLog));
       meals = []; waterIntake = 0; currentSession = { name: "", exercises: [] };
       saveLocalState();
