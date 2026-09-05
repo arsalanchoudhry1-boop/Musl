@@ -1219,21 +1219,76 @@
 
   async function fetchPrayerTimes() {
     try {
-      const res = await fetch(`https://api.aladhan.com/v1/timingsByCity?city=London&country=UK&method=3`);
-      const data = await res.json();
-      const t = data.data.timings;
-      document.getElementById('time-fajr').innerText = t.Fajr;
-      document.getElementById('time-dhuhr').innerText = t.Dhuhr;
-      document.getElementById('time-asr').innerText = t.Asr;
-      document.getElementById('time-maghrib').innerText = t.Maghrib;
-      document.getElementById('time-isha').innerText = t.Isha;
-      updateNextPrayerCountdown(t);
-    } catch(e) {}
+      const dateStr = new Date().toISOString().split('T')[0];
+      let res = await fetch(`https://www.londonprayertimes.com/api/times/?format=json&date=${dateStr}&24hours=true`).catch(() => null);
+      let data = res ? await res.json() : null;
+
+      let times = {};
+      if (!data || !data.fajr) {
+        const fallback = await fetch('https://api.aladhan.com/v1/timingsByCity?city=London&country=UK&method=3');
+        const fallbackData = await fallback.json();
+        const t = fallbackData.data.timings;
+        times = { Fajr: t.Fajr, Dhuhr: t.Dhuhr, Asr: t.Asr, Maghrib: t.Maghrib, Isha: t.Isha };
+      } else {
+        times = { Fajr: data.fajr, Dhuhr: data.dhuhr, Asr: data.asr, Maghrib: data.magrib, Isha: data.isha };
+      }
+
+      document.getElementById('time-fajr').innerText = times.Fajr;
+      document.getElementById('time-dhuhr').innerText = times.Dhuhr;
+      document.getElementById('time-asr').innerText = times.Asr;
+      document.getElementById('time-maghrib').innerText = times.Maghrib;
+      document.getElementById('time-isha').innerText = times.Isha;
+
+      updateNextPrayerCountdown(times);
+    } catch (e) {
+      document.getElementById('next-prayer-widget').innerText = "Offline";
+    }
   }
 
   function updateNextPrayerCountdown(times) {
-    document.getElementById('next-prayer-widget').innerText = "On Track";
-    document.getElementById('salah-next-countdown').innerText = times.Dhuhr;
+    const now = new Date();
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+
+    const prayerKeys = [
+      { key: 'fajr', name: 'Fajr', time: times.Fajr },
+      { key: 'dhuhr', name: 'Dhuhr', time: times.Dhuhr },
+      { key: 'asr', name: 'Asr', time: times.Asr },
+      { key: 'maghrib', name: 'Maghrib', time: times.Maghrib },
+      { key: 'isha', name: 'Isha', time: times.Isha }
+    ];
+
+    let next = prayerKeys[0];
+    let found = false;
+
+    for (let p of prayerKeys) {
+      if (!p.time) continue;
+      const [h, m] = p.time.split(':').map(Number);
+      const pMinutes = h * 60 + m;
+      if (pMinutes > currentTime) {
+        next = p;
+        found = true;
+        break;
+      }
+    }
+
+    document.querySelectorAll('.salah-card').forEach(el => el.classList.remove('active-next'));
+    const activeCard = document.getElementById('card-' + next.key);
+    if (activeCard) activeCard.classList.add('active-next');
+
+    document.getElementById('salah-next-title').innerText = next.name;
+
+    if (!found) {
+      document.getElementById('next-prayer-widget').innerText = `Fajr (Tomorrow)`;
+      document.getElementById('salah-next-countdown').innerText = times.Fajr || '--:--';
+    } else {
+      const [h, m] = next.time.split(':').map(Number);
+      const targetMinutes = h * 60 + m;
+      const diffMins = targetMinutes - currentTime;
+      const hoursLeft = Math.floor(diffMins / 60);
+      const minsLeft = diffMins % 60;
+      document.getElementById('next-prayer-widget').innerText = `${next.name} in ${hoursLeft > 0 ? hoursLeft + 'h ' : ''}${minsLeft}m`;
+      document.getElementById('salah-next-countdown').innerText = next.time;
+    }
   }
 
   function saveRoutineTemplate() {
