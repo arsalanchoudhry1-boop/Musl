@@ -698,6 +698,47 @@
   let calendarViewDate = new Date();
 
   window.onload = () => {
+
+    // --- NEW DAY AUTO-ARCHIVE LOGIC ---
+    const todayDateStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    let lastActiveDate = localStorage.getItem(STORAGE_PREFIX + 'lastActiveDate');
+    
+    if (!lastActiveDate) {
+      // First time running, just register the date
+      localStorage.setItem(STORAGE_PREFIX + 'lastActiveDate', todayDateStr);
+    } else if (lastActiveDate !== todayDateStr) {
+      // It's a new day! Save yesterday's data using the exact format from your resetDay()
+      masterCalendarLog[lastActiveDate] = { meals: meals, water: waterIntake, weight: currentWeight, workout: currentSession };
+      localStorage.setItem(STORAGE_PREFIX + 'masterCalendarLog', JSON.stringify(masterCalendarLog));
+      
+      // Clear inputs 
+      meals = []; 
+      waterIntake = 0; 
+      currentSession = { name: "", exercises: [] };
+      sportSessions = [];
+      prayers.forEach(p => {
+        document.getElementById(p).checked = false;
+        localStorage.setItem(STORAGE_PREFIX + p, 'false');
+      });
+      
+      // Save the cleared state back to storage
+      localStorage.setItem(STORAGE_PREFIX + 'meals', JSON.stringify(meals));
+      localStorage.setItem(STORAGE_PREFIX + 'waterIntake', waterIntake);
+      localStorage.setItem(STORAGE_PREFIX + 'currentSession', JSON.stringify(currentSession));
+      localStorage.setItem(STORAGE_PREFIX + 'sportSessions', JSON.stringify(sportSessions));
+      localStorage.setItem(STORAGE_PREFIX + 'lastActiveDate', todayDateStr);
+    }
+
+    // Check every minute if the date rolls over while the app is left open on your screen
+    setInterval(() => {
+      const checkDateStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      const storedDate = localStorage.getItem(STORAGE_PREFIX + 'lastActiveDate');
+      if (storedDate && storedDate !== checkDateStr) {
+        location.reload(); // Reload the page so the logic above clears it automatically
+      }
+    }, 60000);
+    // --- END AUTO-ARCHIVE LOGIC ---
+
     prayers.forEach(p => {
       document.getElementById(p).checked = localStorage.getItem(STORAGE_PREFIX + p) === 'true';
     });
