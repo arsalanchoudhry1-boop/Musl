@@ -704,24 +704,26 @@
     let lastActiveDate = localStorage.getItem(STORAGE_PREFIX + 'lastActiveDate');
     
     if (!lastActiveDate) {
-      // First time running, just register the date
       localStorage.setItem(STORAGE_PREFIX + 'lastActiveDate', todayDateStr);
     } else if (lastActiveDate !== todayDateStr) {
-      // It's a new day! Save yesterday's data using the exact format from your resetDay()
-      masterCalendarLog[lastActiveDate] = { meals: meals, water: waterIntake, weight: currentWeight, workout: currentSession };
+      masterCalendarLog[lastActiveDate] = { meals: meals, water: waterIntake, weight: currentWeight, workout: currentSession, sportSessions: sportSessions, prayers: {
+          fajr: document.getElementById('fajr') ? document.getElementById('fajr').checked : false,
+          dhuhr: document.getElementById('dhuhr') ? document.getElementById('dhuhr').checked : false,
+          asr: document.getElementById('asr') ? document.getElementById('asr').checked : false,
+          maghrib: document.getElementById('maghrib') ? document.getElementById('maghrib').checked : false,
+          isha: document.getElementById('isha') ? document.getElementById('isha').checked : false
+      }};
       localStorage.setItem(STORAGE_PREFIX + 'masterCalendarLog', JSON.stringify(masterCalendarLog));
       
-      // Clear inputs 
       meals = []; 
       waterIntake = 0; 
       currentSession = { name: "", exercises: [] };
       sportSessions = [];
       prayers.forEach(p => {
-        document.getElementById(p).checked = false;
+        if(document.getElementById(p)) document.getElementById(p).checked = false;
         localStorage.setItem(STORAGE_PREFIX + p, 'false');
       });
       
-      // Save the cleared state back to storage
       localStorage.setItem(STORAGE_PREFIX + 'meals', JSON.stringify(meals));
       localStorage.setItem(STORAGE_PREFIX + 'waterIntake', waterIntake);
       localStorage.setItem(STORAGE_PREFIX + 'currentSession', JSON.stringify(currentSession));
@@ -729,13 +731,10 @@
       localStorage.setItem(STORAGE_PREFIX + 'lastActiveDate', todayDateStr);
     }
 
-    // Check every minute if the date rolls over while the app is left open on your screen
     setInterval(() => {
       const checkDateStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
       const storedDate = localStorage.getItem(STORAGE_PREFIX + 'lastActiveDate');
-      if (storedDate && storedDate !== checkDateStr) {
-        location.reload(); // Reload the page so the logic above clears it automatically
-      }
+      if (storedDate && storedDate !== checkDateStr) location.reload();
     }, 60000);
     // --- END AUTO-ARCHIVE LOGIC ---
 
@@ -1491,28 +1490,111 @@
   function closeHistoryModal() { document.getElementById('history-modal').style.display = 'none'; }
   function changeMonth(dir) { calendarViewDate.setMonth(calendarViewDate.getMonth() + dir); renderCalendar(); }
 
+  // --- UPDATED CALENDAR RENDERER ---
   function renderCalendar() {
     const year = calendarViewDate.getFullYear(), month = calendarViewDate.getMonth();
     document.getElementById('cal-month-year-label').innerText = `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][month]} ${year}`;
     const grid = document.getElementById('cal-days-grid');
     grid.innerHTML = '';
+    
+    // Align calendar correctly starting on Monday
+    const firstDayIndex = new Date(year, month, 1).getDay();
+    const startOffset = (firstDayIndex + 6) % 7; 
+    
+    for (let i = 0; i < startOffset; i++) {
+      let emptyCell = document.createElement('div');
+      emptyCell.className = 'cal-cell empty';
+      grid.appendChild(emptyCell);
+    }
+
     const totalDays = new Date(year, month + 1, 0).getDate();
     for (let day = 1; day <= totalDays; day++) {
-      let cell = document.createElement('div'); cell.className = 'cal-cell'; cell.innerText = day;
+      let cell = document.createElement('div'); 
+      cell.className = 'cal-cell'; 
+      cell.innerText = day;
+      
       let key = new Date(year, month, day).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-      if (masterCalendarLog[key]) cell.classList.add('has-data');
+      
+      if (masterCalendarLog[key]) {
+        cell.classList.add('has-data');
+      }
+      
+      // NEW: Added click listener to trigger the Day Details view
+      cell.onclick = () => showDayDetails(key, cell);
       grid.appendChild(cell);
     }
+  }
+
+  // --- NEW SHOW DAY DETAILS FUNCTION ---
+  function showDayDetails(dateKey, cellElement) {
+    document.querySelectorAll('.cal-cell').forEach(c => c.classList.remove('selected'));
+    cellElement.classList.add('selected');
+
+    const data = masterCalendarLog[dateKey];
+    const container = document.getElementById('selected-day-container');
+    
+    if (!data) {
+      container.innerHTML = `<p style="color:var(--accent); text-align:center; margin-top:15px; font-size:0.85rem;">No logs for ${dateKey}.</p>`;
+      return;
+    }
+
+    let html = `<div class="day-log-details">`;
+    html += `<h4 style="margin:0 0 10px 0; border-bottom:1px solid var(--border); padding-bottom:5px; color:#fff;">${dateKey} Summary</h4>`;
+    
+    if (data.weight) html += `<div style="margin-bottom:4px;"><strong>Weight:</strong> ${data.weight} kg</div>`;
+    if (data.water) html += `<div style="margin-bottom:4px;"><strong>Water:</strong> ${data.water} ml</div>`;
+    
+    if (data.prayers) {
+      const pCompleted = Object.values(data.prayers).filter(Boolean).length;
+      html += `<div style="margin-bottom:4px;"><strong>Prayers:</strong> ${pCompleted}/5 Completed</div>`;
+    }
+
+    if (data.workout && data.workout.exercises && data.workout.exercises.length > 0) {
+      html += `<div style="margin-top:10px; color:var(--blue);"><strong>Gym: ${data.workout.name || 'Session'}</strong></div>`;
+      data.workout.exercises.forEach(ex => {
+        html += `<div style="margin-left:10px; font-size:0.75rem; color:var(--accent);">- ${ex.name} (${ex.sets.length} sets)</div>`;
+      });
+    }
+
+    if (data.sportSessions && data.sportSessions.length > 0) {
+      html += `<div style="margin-top:10px; color:var(--green);"><strong>Sports:</strong></div>`;
+      data.sportSessions.forEach(s => {
+        html += `<div style="margin-left:10px; font-size:0.75rem; color:var(--accent);">- ${s.sport} (${s.duration} mins)</div>`;
+      });
+    }
+    
+    if (data.meals && data.meals.length > 0) {
+      let totalCals = data.meals.reduce((sum, m) => sum + m.cals, 0);
+      let totalP = data.meals.reduce((sum, m) => sum + m.p, 0);
+      html += `<div style="margin-top:10px; color:var(--gold);"><strong>Nutrition:</strong> ${totalCals} kcal | ${totalP.toFixed(1)}g Protein</div>`;
+      data.meals.forEach(m => {
+        html += `<div style="margin-left:10px; font-size:0.75rem; color:var(--accent);">- ${m.food}</div>`;
+      });
+    }
+
+    html += `</div>`;
+    container.innerHTML = html;
   }
 
   function resetDay() {
     if (confirm('Archive day?')) {
       const key = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-      masterCalendarLog[key] = { meals, water: waterIntake, weight: currentWeight, workout: currentSession };
+      masterCalendarLog[key] = { 
+        meals: meals, water: waterIntake, weight: currentWeight, workout: currentSession, sportSessions: sportSessions, prayers: {
+          fajr: document.getElementById('fajr') ? document.getElementById('fajr').checked : false,
+          dhuhr: document.getElementById('dhuhr') ? document.getElementById('dhuhr').checked : false,
+          asr: document.getElementById('asr') ? document.getElementById('asr').checked : false,
+          maghrib: document.getElementById('maghrib') ? document.getElementById('maghrib').checked : false,
+          isha: document.getElementById('isha') ? document.getElementById('isha').checked : false
+      }};
       localStorage.setItem(STORAGE_PREFIX + 'masterCalendarLog', JSON.stringify(masterCalendarLog));
-      meals = []; waterIntake = 0; currentSession = { name: "", exercises: [] };
+      meals = []; waterIntake = 0; currentSession = { name: "", exercises: [] }; sportSessions = [];
+      prayers.forEach(p => {
+        if(document.getElementById(p)) document.getElementById(p).checked = false;
+        localStorage.setItem(STORAGE_PREFIX + p, 'false');
+      });
       saveLocalState();
-      renderMeals(); updateWaterUI(); renderSession();
+      renderMeals(); updateWaterUI(); renderSession(); updatePrayerUI();
       alert("Day archived!");
     }
   }
